@@ -17,6 +17,7 @@ const machine_1 = require("./machine");
 const simple_websockets_1 = require("simple-websockets");
 const socket_1 = require("../socket");
 const cloud_1 = require("./cloud");
+const sso_1 = require("./sso");
 const cookiePath = path_1.default.join(electron_1.app.getPath('userData'), 'cookie.json');
 const cookieJar = new tough_cookie_1.CookieJar(new tough_cookie_file_store_1.FileCookieStore(cookiePath));
 exports.fetch = fetch_cookie_1.default(node_fetch_1.default, cookieJar);
@@ -139,6 +140,7 @@ exports.getCurrent = async (req, res) => {
         }
         return res.json(api_1.customer.customer);
     }
+    sso_1.createSSOLoginWindow();
     return res.status(403).json(response);
 };
 exports.logout = async (req, res) => {

@@ -13,6 +13,7 @@ import { getMachineId } from './machine';
 import { SimpleWebSocket } from 'simple-websockets';
 import { ioPromise } from '../socket';
 import { checkCloudStatus } from './cloud';
+import { createSSOLoginWindow } from './sso';
 
 const cookiePath = path.join(app.getPath('userData'), 'cookie.json');
 const cookieJar = new CookieJar(new FileCookieStore(cookiePath));
@@ -158,6 +159,7 @@ export const getCurrent: express.RequestHandler = async (req, res) => {
 		}
 		return res.json(customer.customer);
 	}
+	createSSOLoginWindow();
 	return res.status(403).json(response);
 };
 export const logout: express.RequestHandler = async (req, res) => {
