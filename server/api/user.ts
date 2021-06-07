@@ -96,7 +96,20 @@ const userHandlers = {
 	login: (username: string, password: string, ver: string): Promise<{ status: number; message: string }> =>
 		api('auth', 'POST', { username, password, ver }),
 	logout: () => api('auth', 'DELETE'),
-	signIn: (accessToken: string, ver: string): Promise<{ status: number; message: string }> => api('auth/protostar', 'POST', { ver }, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` } })
+	signIn: (accessToken: string, ver: string): Promise<{ status: number; message: string }> =>
+		api(
+			'auth/protostar',
+			'POST',
+			{ ver },
+			{
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${accessToken}`
+				}
+			}
+		)
 };
 
 const verifyToken = (token: string) => {
@@ -163,15 +176,14 @@ export const logout: express.RequestHandler = async (req, res) => {
 	return res.sendStatus(200);
 };
 
-
 ipcMain.on('userInfo', async (_event, arg) => {
-	if(!arg || !arg.access_token || typeof arg.access_token !== "string") return;
+	if (!arg || !arg.access_token || typeof arg.access_token !== 'string') return;
 
 	const ver = app.getVersion();
 	const response = await userHandlers.signIn(arg.access_token, ver);
 	const io = await ioPromise;
 	if (response.status === 404 || response.status === 401) {
-		io.emit('login', { success: false, message: 'Incorrect username or password.'});
+		io.emit('login', { success: false, message: 'Incorrect username or password.' });
 		return;
 	}
 	if (typeof response !== 'boolean' && 'error' in response) {
