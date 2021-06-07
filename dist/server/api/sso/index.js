@@ -6,27 +6,57 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createSSOLoginWindow = void 0;
 const electron_1 = require("electron");
 const path_1 = __importDefault(require("path"));
-const node_fetch_1 = __importDefault(require("node-fetch"));
-const getUser = async (token) => {
-    const response = await node_fetch_1.default('https://auth.protostar.gg/oauth2/userInfo', {
-        headers: {
-            'Authorization': `Bearer ${token}`
-        }
-    }).then(res => res.json());
-    console.log(response);
-    return response;
-};
-electron_1.ipcMain.on('userInfo', (_event, arg) => {
-    //if(!arg || !arg.access_token) return;
-    //getUser(arg.access_token);
-    console.log(arg);
-});
+const customCSS = `
+html, body {
+    height: 100% !important;
+}
+body {
+    background-color: transparent !important;
+    border: 1px solid black;
+}
+.container {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+.banner-customizable {
+    -webkit-app-region: drag;
+}
+
+.modal-dialog {
+    margin: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+.modal-content {
+    max-width: unset !important;
+    height: 100% !important;
+}
+`;
 exports.createSSOLoginWindow = () => {
     const loginPopup = new electron_1.BrowserWindow({
+        title: "Log In",
+        frame: false,
+        width: 450,
+        height: 540,
+        minHeight: 540,
+        minWidth: 300,
+        focusable: true,
         webPreferences: {
             preload: path_1.default.join(__dirname, 'preload.js'),
+            backgroundThrottling: false,
             contextIsolation: true
         }
+    });
+    let cssLoaded = false;
+    loginPopup.webContents.on('did-finish-load', () => {
+        if (cssLoaded)
+            return;
+        loginPopup.webContents.insertCSS(customCSS);
+        cssLoaded = true;
+        loginPopup.moveTop();
+        //loginPopup.show();
     });
     loginPopup.loadURL('https://auth.protostar.gg/login?response_type=code&client_id=2nphkm2t7dgdmfcojdki268tso&redirect_uri=http://localhost:5000/auth_callback');
 };

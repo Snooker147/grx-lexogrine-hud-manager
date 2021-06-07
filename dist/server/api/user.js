@@ -22,9 +22,10 @@ const cookiePath = path_1.default.join(electron_1.app.getPath('userData'), 'cook
 const cookieJar = new tough_cookie_1.CookieJar(new tough_cookie_file_store_1.FileCookieStore(cookiePath));
 exports.fetch = fetch_cookie_1.default(node_fetch_1.default, cookieJar);
 exports.socket = null;
-const USE_LOCAL_BACKEND = false;
+const USE_LOCAL_BACKEND = true;
+let allowSocketConnection = true;
 const connectSocket = () => {
-    if (exports.socket)
+    if (exports.socket || !allowSocketConnection)
         return;
     exports.socket = new simple_websockets_1.SimpleWebSocket(USE_LOCAL_BACKEND ? 'ws://localhost:5000' : 'wss://hmapi.lexogrine.com/', {
         headers: {
@@ -84,7 +85,8 @@ exports.api = (url, method = 'GET', body, opts) => {
 const userHandlers = {
     get: (machineId) => exports.api(`auth/${machineId}`),
     login: (username, password, ver) => exports.api('auth', 'POST', { username, password, ver }),
-    logout: () => exports.api('auth', 'DELETE')
+    logout: () => exports.api('auth', 'DELETE'),
+    signIn: (accessToken, ver) => exports.api('auth/protostar', 'POST', { ver }, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` } })
 };
 const verifyToken = (token) => {
     try {
@@ -111,24 +113,15 @@ const loadUser = async (loggedIn = false) => {
     if (!userData) {
         return { success: false, message: 'Your session has expired - try restarting the application' };
     }
+    allowSocketConnection = true;
     connectSocket();
     api_1.customer.customer = userData;
     return { success: true, message: '' };
 };
-const login = async (username, password) => {
-    const ver = electron_1.app.getVersion();
-    const response = await userHandlers.login(username, password, ver);
-    if (response.status === 404 || response.status === 401) {
-        return { success: false, message: 'Incorrect username or password.' };
-    }
-    if (typeof response !== 'boolean' && 'error' in response) {
-        return { success: false, message: response.error };
-    }
-    return await loadUser(true);
-};
 exports.loginHandler = async (req, res) => {
-    const response = await login(req.body.username, req.body.password);
-    res.json(response);
+    //const response = await login(req.body.username, req.body.password);
+    sso_1.createSSOLoginWindow();
+    return res.sendStatus(200);
 };
 exports.getCurrent = async (req, res) => {
     if (api_1.customer.customer) {
@@ -140,14 +133,33 @@ exports.getCurrent = async (req, res) => {
         }
         return res.json(api_1.customer.customer);
     }
-    sso_1.createSSOLoginWindow();
     return res.status(403).json(response);
 };
 exports.logout = async (req, res) => {
+    // TODO: Actually do it
     api_1.customer.customer = null;
     if (exports.socket) {
+        allowSocketConnection = false;
         exports.socket._socket.close();
     }
     await userHandlers.logout();
     return res.sendStatus(200);
 };
+electron_1.ipcMain.on('userInfo', async (_event, arg) => {
+    if (!arg || !arg.access_token || typeof arg.access_token !== "string")
+        return;
+    const ver = electron_1.app.getVersion();
+    const response = await userHandlers.signIn(arg.access_token, ver);
+    const io = await socket_1.ioPromise;
+    if (response.status === 404 || response.status === 401) {
+        io.emit('login', { success: false, message: 'Incorrect username or password.' });
+        return;
+    }
+    if (typeof response !== 'boolean' && 'error' in response) {
+        io.emit('login', { success: false, message: response.error });
+        return;
+    }
+    const result = await loadUser(true);
+    io.emit('login', result);
+    return;
+});

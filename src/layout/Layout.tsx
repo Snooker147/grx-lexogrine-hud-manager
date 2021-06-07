@@ -89,6 +89,11 @@ export default class Layout extends React.Component<{}, IState> {
 		socket.on('config', () => {
 			this.loadConfig();
 		});
+
+		socket.on('login', (response: any) => {
+			this.setLoading(response.success, response.message);
+			this.loadUser();
+		})
 	}
 	loadConfig = async () => {
 		const cfg = await api.config.get();

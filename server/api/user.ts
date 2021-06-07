@@ -1,5 +1,5 @@
 import express, { RequestHandler, response } from 'express';
-import { app } from 'electron';
+import { app, ipcMain } from 'electron';
 import jwt from 'jsonwebtoken';
 import nodeFetch, { RequestInit } from 'node-fetch';
 import { publicKey } from './publickey';
@@ -22,10 +22,11 @@ export const fetch = fetchHandler(nodeFetch, cookieJar);
 
 export let socket: SimpleWebSocket | null = null;
 
-const USE_LOCAL_BACKEND = false;
+const USE_LOCAL_BACKEND = true;
+let allowSocketConnection = true;
 
 const connectSocket = () => {
-	if (socket) return;
+	if (socket || !allowSocketConnection) return;
 	socket = new SimpleWebSocket(USE_LOCAL_BACKEND ? 'ws://localhost:5000' : 'wss://hmapi.lexogrine.com/', {
 		headers: {
 			Cookie: cookieJar.getCookieStringSync(
@@ -94,7 +95,8 @@ const userHandlers = {
 	get: (machineId: string): Promise<{ token: string } | { error: string } | false> => api(`auth/${machineId}`),
 	login: (username: string, password: string, ver: string): Promise<{ status: number; message: string }> =>
 		api('auth', 'POST', { username, password, ver }),
-	logout: () => api('auth', 'DELETE')
+	logout: () => api('auth', 'DELETE'),
+	signIn: (accessToken: string, ver: string): Promise<{ status: number; message: string }> => api('auth/protostar', 'POST', { ver }, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` } })
 };
 
 const verifyToken = (token: string) => {
@@ -123,29 +125,17 @@ const loadUser = async (loggedIn = false) => {
 	if (!userData) {
 		return { success: false, message: 'Your session has expired - try restarting the application' };
 	}
-
+	allowSocketConnection = true;
 	connectSocket();
 
 	customer.customer = userData;
 	return { success: true, message: '' };
 };
 
-const login = async (username: string, password: string) => {
-	const ver = app.getVersion();
-
-	const response = await userHandlers.login(username, password, ver);
-	if (response.status === 404 || response.status === 401) {
-		return { success: false, message: 'Incorrect username or password.' };
-	}
-	if (typeof response !== 'boolean' && 'error' in response) {
-		return { success: false, message: (response as any).error };
-	}
-	return await loadUser(true);
-};
-
 export const loginHandler: express.RequestHandler = async (req, res) => {
-	const response = await login(req.body.username, req.body.password);
-	res.json(response);
+	//const response = await login(req.body.username, req.body.password);
+	createSSOLoginWindow();
+	return res.sendStatus(200);
 };
 
 export const getCurrent: express.RequestHandler = async (req, res) => {
@@ -159,14 +149,36 @@ export const getCurrent: express.RequestHandler = async (req, res) => {
 		}
 		return res.json(customer.customer);
 	}
-	createSSOLoginWindow();
+
 	return res.status(403).json(response);
 };
 export const logout: express.RequestHandler = async (req, res) => {
+	// TODO: Actually do it
 	customer.customer = null;
 	if (socket) {
+		allowSocketConnection = false;
 		socket._socket.close();
 	}
 	await userHandlers.logout();
 	return res.sendStatus(200);
 };
+
+
+ipcMain.on('userInfo', async (_event, arg) => {
+	if(!arg || !arg.access_token || typeof arg.access_token !== "string") return;
+
+	const ver = app.getVersion();
+	const response = await userHandlers.signIn(arg.access_token, ver);
+	const io = await ioPromise;
+	if (response.status === 404 || response.status === 401) {
+		io.emit('login', { success: false, message: 'Incorrect username or password.'});
+		return;
+	}
+	if (typeof response !== 'boolean' && 'error' in response) {
+		io.emit('login', { success: false, message: (response as any).error });
+		return;
+	}
+	const result = await loadUser(true);
+	io.emit('login', result);
+	return;
+});
