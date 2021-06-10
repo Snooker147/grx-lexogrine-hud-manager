@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { app, shell, Notification } from 'electron';
-import express, { request, RequestHandler } from 'express';
+import express, { RequestHandler } from 'express';
 import * as I from './../../types/interfaces';
 import { loadConfig, publicIP, internalIP } from './config';
 import { HUDState, ioPromise } from './../socket';
@@ -616,7 +616,6 @@ export const uploadHUD: RequestHandler = async (req, res) => {
 	const hudUploadResponse = await api(`storage/file/${customer.game}/hud/${hud.uuid}`, 'POST', {
 		extra: hud
 	});
-	console.log(hudUploadResponse);
 	if (!hudUploadResponse || !hudUploadResponse.result) {
 		return res.sendStatus(404);
 	}
@@ -631,7 +630,6 @@ export const uploadHUD: RequestHandler = async (req, res) => {
 			'Content-Length': `${fs.statSync(archivePath).size}`
 		}
 	});
-	console.log(response.ok, await response.text());
 	if (!response.ok) {
 		fs.unlinkSync(archivePath);
 

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createSSOLoginWindow = void 0;
+exports.createSSOLoginWindow = exports.ssoWindow = void 0;
 const electron_1 = require("electron");
 const path_1 = __importDefault(require("path"));
 const customCSS = `
@@ -34,11 +34,17 @@ body {
     height: 100% !important;
 }
 `;
+exports.ssoWindow = null;
 exports.createSSOLoginWindow = () => {
-    const loginPopup = new electron_1.BrowserWindow({
-        title: "Log In",
+    if (exports.ssoWindow) {
+        exports.ssoWindow.moveTop();
+        return;
+    }
+    exports.ssoWindow = new electron_1.BrowserWindow({
+        title: 'Log In',
         frame: false,
         width: 450,
+        show: false,
         height: 540,
         minHeight: 540,
         minWidth: 300,
@@ -50,13 +56,18 @@ exports.createSSOLoginWindow = () => {
         }
     });
     let cssLoaded = false;
-    loginPopup.webContents.on('did-finish-load', () => {
-        if (cssLoaded)
+    exports.ssoWindow.webContents.on('did-finish-load', () => {
+        if (cssLoaded || !exports.ssoWindow)
             return;
-        loginPopup.webContents.insertCSS(customCSS);
+        exports.ssoWindow.webContents.insertCSS(customCSS);
         cssLoaded = true;
-        loginPopup.moveTop();
+        exports.ssoWindow.show();
+        exports.ssoWindow.setAlwaysOnTop(true);
+        exports.ssoWindow.setAlwaysOnTop(false);
         //loginPopup.show();
     });
-    loginPopup.loadURL('https://auth.protostar.gg/login?response_type=code&client_id=2nphkm2t7dgdmfcojdki268tso&redirect_uri=http://localhost:5000/auth_callback');
+    exports.ssoWindow.on('close', () => {
+        exports.ssoWindow = null;
+    });
+    exports.ssoWindow.loadURL('https://auth.protostar.gg/login?response_type=code&client_id=2nphkm2t7dgdmfcojdki268tso&redirect_uri=http://localhost:5000/auth_callback');
 };

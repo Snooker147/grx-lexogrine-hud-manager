@@ -30,11 +30,18 @@ body {
 }
 `;
 
+export let ssoWindow: BrowserWindow | null = null;
+
 export const createSSOLoginWindow = () => {
-	const loginPopup = new BrowserWindow({
+	if(ssoWindow){
+		ssoWindow.moveTop();
+		return;
+	}
+	ssoWindow = new BrowserWindow({
 		title: 'Log In',
 		frame: false,
 		width: 450,
+		show: false,
 		height: 540,
 		minHeight: 540,
 		minWidth: 300,
@@ -47,15 +54,21 @@ export const createSSOLoginWindow = () => {
 	});
 
 	let cssLoaded = false;
-	loginPopup.webContents.on('did-finish-load', () => {
-		if (cssLoaded) return;
-		loginPopup.webContents.insertCSS(customCSS);
+	ssoWindow.webContents.on('did-finish-load', () => {
+		if (cssLoaded || !ssoWindow) return;
+		ssoWindow.webContents.insertCSS(customCSS);
 		cssLoaded = true;
-		loginPopup.moveTop();
+		ssoWindow.show();
+		ssoWindow.setAlwaysOnTop(true);
+		ssoWindow.setAlwaysOnTop(false);
 		//loginPopup.show();
 	});
 
-	loginPopup.loadURL(
+	ssoWindow.on('close', () => {
+		ssoWindow = null;
+	});
+
+	ssoWindow.loadURL(
 		'https://auth.protostar.gg/login?response_type=code&client_id=2nphkm2t7dgdmfcojdki268tso&redirect_uri=http://localhost:5000/auth_callback'
 	);
 };

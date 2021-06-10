@@ -13,7 +13,7 @@ import { getMachineId } from './machine';
 import { SimpleWebSocket } from 'simple-websockets';
 import { ioPromise } from '../socket';
 import { checkCloudStatus } from './cloud';
-import { createSSOLoginWindow } from './sso';
+import { createSSOLoginWindow, ssoWindow } from './sso';
 
 const cookiePath = path.join(app.getPath('userData'), 'cookie.json');
 const cookieJar = new CookieJar(new FileCookieStore(cookiePath));
@@ -168,8 +168,8 @@ export const getCurrent: express.RequestHandler = async (req, res) => {
 export const logout: express.RequestHandler = async (req, res) => {
 	// TODO: Actually do it
 	customer.customer = null;
+	allowSocketConnection = false;
 	if (socket) {
-		allowSocketConnection = false;
 		socket._socket.close();
 	}
 	await userHandlers.logout();
@@ -192,5 +192,6 @@ ipcMain.on('userInfo', async (_event, arg) => {
 	}
 	const result = await loadUser(true);
 	io.emit('login', result);
+	ssoWindow?.close();
 	return;
 });

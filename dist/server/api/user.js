@@ -86,7 +86,14 @@ const userHandlers = {
     get: (machineId) => exports.api(`auth/${machineId}`),
     login: (username, password, ver) => exports.api('auth', 'POST', { username, password, ver }),
     logout: () => exports.api('auth', 'DELETE'),
-    signIn: (accessToken, ver) => exports.api('auth/protostar', 'POST', { ver }, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` } })
+    signIn: (accessToken, ver) => exports.api('auth/protostar', 'POST', { ver }, {
+        method: 'POST',
+        headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`
+        }
+    })
 };
 const verifyToken = (token) => {
     try {
@@ -138,15 +145,15 @@ exports.getCurrent = async (req, res) => {
 exports.logout = async (req, res) => {
     // TODO: Actually do it
     api_1.customer.customer = null;
+    allowSocketConnection = false;
     if (exports.socket) {
-        allowSocketConnection = false;
         exports.socket._socket.close();
     }
     await userHandlers.logout();
     return res.sendStatus(200);
 };
 electron_1.ipcMain.on('userInfo', async (_event, arg) => {
-    if (!arg || !arg.access_token || typeof arg.access_token !== "string")
+    if (!arg || !arg.access_token || typeof arg.access_token !== 'string')
         return;
     const ver = electron_1.app.getVersion();
     const response = await userHandlers.signIn(arg.access_token, ver);
@@ -161,5 +168,6 @@ electron_1.ipcMain.on('userInfo', async (_event, arg) => {
     }
     const result = await loadUser(true);
     io.emit('login', result);
+    sso_1.ssoWindow?.close();
     return;
 });
