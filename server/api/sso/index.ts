@@ -33,7 +33,7 @@ body {
 export let ssoWindow: BrowserWindow | null = null;
 
 export const createSSOLoginWindow = () => {
-	if(ssoWindow){
+	if (ssoWindow) {
 		ssoWindow.moveTop();
 		return;
 	}
